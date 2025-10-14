@@ -100,21 +100,21 @@ class OSSUploader:
                 raise Exception(f"Upload failed with status: {result.status}")
             
             # Construct the public URL
-            oss_url = f"https://{self.bucket_name}.{self.endpoint.replace('https://', '')}/{object_name}"
+            oss_url = f"https://download.macaron.chat/{object_name}"
             
             # Construct console URL
-            console_url = (
-                f"https://oss.console.aliyun.com/bucket/"
-                f"{self.region}/{self.bucket_name}/object?path={self.prefix}%2F"
-            )
+            # console_url = (
+            #     f"https://oss.console.aliyun.com/bucket/"
+            #     f"{self.region}/{self.bucket_name}/object?path={self.prefix}%2F"
+            # )
             
             return {
                 "success": True,
                 "url": oss_url,
                 "object_name": object_name,
                 "bucket": self.bucket_name,
-                "size_mb": round(file_size_mb, 2),
-                "console_url": console_url
+                "size_mb": round(file_size_mb, 2)
+                # "console_url": console_url
             }
             
         except Exception as e:
