@@ -1,4 +1,4 @@
-"""FastAPI application for APK file uploads to Aliyun OSS."""
+"""FastAPI application for Android package (APK/AAB) file uploads to Aliyun OSS."""
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Form
 from fastapi.responses import JSONResponse
@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="APK Uploader API",
-    description="API for uploading APK files to Aliyun OSS",
-    version="1.0.0",
+    title="Android Package Uploader API",
+    description="API for uploading Android packages (APK/AAB files) to Aliyun OSS",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -51,9 +51,10 @@ def get_uploader(settings: Settings = Depends(get_settings)) -> OSSUploader:
 async def root():
     """Root endpoint with API information."""
     return {
-        "name": "APK Uploader API",
-        "version": "1.0.0",
+        "name": "Android Package Uploader API",
+        "version": "2.0.0",
         "status": "running",
+        "supported_formats": ["APK", "AAB"],
         "endpoints": {
             "upload": "/upload",
             "health": "/health",
@@ -67,23 +68,24 @@ async def health_check():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "service": "apk-uploader"
+        "service": "android-package-uploader",
+        "supported_formats": ["APK", "AAB"]
     }
 
 
 @app.post("/upload")
-async def upload_apk(
-    file: UploadFile = File(..., description="APK file to upload"),
-    custom_name: Optional[str] = Form(None, description="Custom name for the file (optional)"),
+async def upload_package(
+    file: UploadFile = File(..., description="Android package file to upload (APK or AAB)"),
+    custom_name: Optional[str] = Form(None, description="Custom name for the file (optional, without extension)"),
     settings: Settings = Depends(get_settings),
     uploader: OSSUploader = Depends(get_uploader)
 ):
     """
-    Upload an APK file to Aliyun OSS.
+    Upload an Android package file (APK or AAB) to Aliyun OSS.
     
     Args:
-        file: The APK file to upload
-        custom_name: Optional custom name for the uploaded file (without .apk extension)
+        file: The Android package file to upload (APK or AAB)
+        custom_name: Optional custom name for the uploaded file (without extension)
         
     Returns:
         JSON response with upload status and file URL
@@ -93,10 +95,11 @@ async def upload_apk(
     """
     try:
         # Validate file type
-        if not file.filename.lower().endswith('.apk'):
+        filename_lower = file.filename.lower()
+        if not (filename_lower.endswith('.apk') or filename_lower.endswith('.aab')):
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid file type. Only APK files are allowed. Got: {file.filename}"
+                detail=f"Invalid file type. Only APK and AAB files are allowed. Got: {file.filename}"
             )
         
         # Read file content
@@ -129,11 +132,13 @@ async def upload_apk(
         
         logger.info(f"Upload successful: {result['url']}")
         
+        file_type = "APK" if filename_lower.endswith('.apk') else "AAB"
+        
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
-                "message": "APK uploaded successfully",
+                "message": f"{file_type} file uploaded successfully",
                 "data": result
             }
         )
@@ -147,7 +152,7 @@ async def upload_apk(
         logger.error(f"Upload failed: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to upload APK: {str(e)}"
+            detail=f"Failed to upload Android package: {str(e)}"
         )
     finally:
         await file.close()

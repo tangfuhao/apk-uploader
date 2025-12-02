@@ -1,10 +1,11 @@
-# APK Uploader API
+# Android Package Uploader API
 
-一個基於 FastAPI 的 APK 文件上傳服務，將 APK 文件上傳到阿里雲 OSS 對象存儲。
+一個基於 FastAPI 的 Android 應用包上傳服務，支持上傳 APK 和 AAB 文件到阿里雲 OSS 對象存儲。
 
 ## 功能特點
 
 - 🚀 FastAPI 構建的高性能 API
+- 📱 支持 APK 和 AAB 文件上傳
 - ☁️ 自動上傳到阿里雲 OSS
 - 🔒 從環境變量讀取憑證，安全可靠
 - 📦 支持自定義文件名
@@ -58,25 +59,34 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ## API 使用
 
-### 上傳 APK 文件
+### 上傳 Android 應用包（APK 或 AAB）
 
 **端點：** `POST /upload`
 
 **參數：**
-- `file`: APK 文件（必需）
-- `custom_name`: 自定義文件名（可選，不需要 .apk 後綴）
+- `file`: APK 或 AAB 文件（必需）
+- `custom_name`: 自定義文件名（可選，不需要副檔名）
 
 **使用 curl：**
 
 ```bash
-# 基本上傳
+# 上傳 APK 文件
 curl -X POST "http://localhost:8000/upload" \
   -F "file=@/path/to/your/app.apk"
 
-# 使用自定義名稱
+# 上傳 AAB 文件
+curl -X POST "http://localhost:8000/upload" \
+  -F "file=@/path/to/your/app.aab"
+
+# 使用自定義名稱（自動保留原始副檔名）
 curl -X POST "http://localhost:8000/upload" \
   -F "file=@/path/to/your/app.apk" \
   -F "custom_name=myapp_v1.0"
+
+# 上傳 AAB 文件並自定義名稱
+curl -X POST "http://localhost:8000/upload" \
+  -F "file=@/path/to/your/app.aab" \
+  -F "custom_name=myapp_v2.0_bundle"
 ```
 
 **使用 Python：**
@@ -85,26 +95,50 @@ curl -X POST "http://localhost:8000/upload" \
 import requests
 
 url = "http://localhost:8000/upload"
+
+# 上傳 APK
 files = {"file": open("myapp.apk", "rb")}
 data = {"custom_name": "myapp_v1.0"}  # 可選
+response = requests.post(url, files=files, data=data)
+print(response.json())
 
+# 上傳 AAB
+files = {"file": open("myapp.aab", "rb")}
+data = {"custom_name": "myapp_v2.0_bundle"}  # 可選
 response = requests.post(url, files=files, data=data)
 print(response.json())
 ```
 
 **響應示例：**
 
+APK 上傳：
 ```json
 {
   "success": true,
-  "message": "APK uploaded successfully",
+  "message": "APK file uploaded successfully",
   "data": {
     "success": true,
-    "url": "https://your-bucket.oss-ap-southeast-1.aliyuncs.com/apk/myapp_v1.0.apk",
-    "object_name": "apk/myapp_v1.0.apk",
-    "bucket": "your-bucket",
-    "size_mb": 25.5,
-    "console_url": "https://oss.console.aliyun.com/bucket/..."
+    "url": "https://download.macaron.chat/android-packages/myapp_v1.0.apk",
+    "object_name": "android-packages/myapp_v1.0.apk",
+    "bucket": "macaron-system",
+    "file_type": "APK",
+    "size_mb": 25.5
+  }
+}
+```
+
+AAB 上傳：
+```json
+{
+  "success": true,
+  "message": "AAB file uploaded successfully",
+  "data": {
+    "success": true,
+    "url": "https://download.macaron.chat/android-packages/myapp_v2.0_bundle.aab",
+    "object_name": "android-packages/myapp_v2.0_bundle.aab",
+    "bucket": "macaron-system",
+    "file_type": "AAB",
+    "size_mb": 38.2
   }
 }
 ```
@@ -171,7 +205,7 @@ apk-uploader/
 │   ├── __init__.py          # 應用初始化
 │   ├── main.py              # FastAPI 主應用
 │   ├── config.py            # 配置管理
-│   └── uploader.py          # OSS 上傳邏輯
+│   └── uploader.py          # OSS 上傳邏輯（支持 APK 和 AAB）
 ├── upload_apk_to_oss.py     # 原始腳本（參考）
 ├── requirements.txt         # Python 依賴
 ├── .env.example             # 環境變量示例
@@ -190,16 +224,29 @@ apk-uploader/
 - **端點：** `https://oss-ap-southeast-1.aliyuncs.com`
 - **區域：** `ap-southeast-1`
 - **存儲桶：** `macaron-system`
-- **前綴：** `apk`
+- **前綴：** `android-packages`
 
 您可以通過環境變量修改這些配置。
 
 ### 上傳限制
 
-- **默認最大文件大小：** 200MB
-- **允許的文件類型：** 僅 .apk 文件
+- **默認最大文件大小：** 250MB
+- **允許的文件類型：** `.apk` 和 `.aab` 文件
 
 可以通過 `MAX_UPLOAD_SIZE` 環境變量調整大小限制。
+
+### 支持的文件格式
+
+#### APK（Android Package）
+- Android 應用程序包
+- 可直接安裝在 Android 設備上
+- 通常用於分發和測試
+
+#### AAB（Android App Bundle）
+- Android 應用程序包
+- Google Play 推薦的發布格式
+- 支持動態交付，減少下載大小
+- 需要通過 Google Play 或 bundletool 生成 APK
 
 ## 開發
 
@@ -232,10 +279,11 @@ ruff check app/
 ### 上傳失敗
 
 如果上傳失敗，檢查：
-1. 文件大小是否超過限制
-2. 文件是否為有效的 APK 文件
+1. 文件大小是否超過限制（默認 250MB）
+2. 文件是否為有效的 APK 或 AAB 文件
 3. OSS 存儲桶是否存在且可訪問
 4. 網絡連接是否正常
+5. 文件是否損壞或不完整
 
 ### Railway 部署問題
 

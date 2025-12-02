@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # Application settings
-    app_name: str = "APK Uploader API"
-    app_version: str = "1.0.0"
+    app_name: str = "Android Package Uploader API"
+    app_version: str = "2.0.0"
     debug: bool = False
     
     # OSS credentials (required)
@@ -20,10 +20,10 @@ class Settings(BaseSettings):
     oss_endpoint: str = "https://oss-ap-southeast-1.aliyuncs.com"
     oss_bucket_name: str = "macaron-system"
     oss_region: str = "ap-southeast-1"
-    oss_prefix: str = "apk"
+    oss_prefix: str = "android-packages"
     
-    # Upload limits
-    max_upload_size: int = 200 * 1024 * 1024  # 200MB
+    # Upload limits (increased for AAB files which can be larger)
+    max_upload_size: int = 250 * 1024 * 1024  # 250MB
     
     class Config:
         env_file = ".env"

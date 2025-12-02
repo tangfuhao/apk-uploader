@@ -1,4 +1,4 @@
-"""OSS uploader module for APK files."""
+"""OSS uploader module for APK and AAB files."""
 
 import oss2
 from pathlib import Path
@@ -8,7 +8,16 @@ import os
 
 
 class OSSUploader:
-    """APK uploader to Aliyun OSS."""
+    """Android package (APK/AAB) uploader to Aliyun OSS."""
+    
+    # Supported file extensions
+    SUPPORTED_EXTENSIONS = {'.apk', '.aab'}
+    
+    # Content types for different file extensions
+    CONTENT_TYPES = {
+        '.apk': 'application/vnd.android.package-archive',
+        '.aab': 'application/x-authorware-bin'
+    }
     
     def __init__(
         self,
@@ -17,7 +26,7 @@ class OSSUploader:
         endpoint: str,
         bucket_name: str,
         region: str,
-        prefix: str = "apk"
+        prefix: str = "android-packages"
     ):
         """
         Initialize OSS uploader.
@@ -51,6 +60,31 @@ class OSSUploader:
             )
         return self._bucket
     
+    def _get_file_extension(self, filename: str) -> str:
+        """Get the file extension from filename."""
+        return Path(filename).suffix.lower()
+    
+    def _validate_file_extension(self, filename: str) -> str:
+        """
+        Validate file extension.
+        
+        Args:
+            filename: The filename to validate
+            
+        Returns:
+            str: The validated file extension
+            
+        Raises:
+            ValueError: If the file extension is not supported
+        """
+        extension = self._get_file_extension(filename)
+        if extension not in self.SUPPORTED_EXTENSIONS:
+            supported = ', '.join(self.SUPPORTED_EXTENSIONS)
+            raise ValueError(
+                f"File must be an Android package ({supported}), got: {filename}"
+            )
+        return extension
+    
     async def upload_file(
         self, 
         file_content: bytes, 
@@ -58,7 +92,7 @@ class OSSUploader:
         custom_name: Optional[str] = None
     ) -> dict:
         """
-        Upload file to OSS.
+        Upload Android package file (APK or AAB) to OSS.
         
         Args:
             file_content: File content as bytes
@@ -69,18 +103,18 @@ class OSSUploader:
             dict: Upload result containing URL and metadata
             
         Raises:
-            ValueError: If the file is not an APK
+            ValueError: If the file is not a supported Android package
             Exception: If upload fails
         """
         # Validate file extension
-        if not filename.lower().endswith('.apk'):
-            raise ValueError(f"File must be an APK file, got: {filename}")
+        extension = self._validate_file_extension(filename)
         
         # Determine object name
         if custom_name:
-            # Ensure custom name doesn't have .apk extension
-            custom_name = custom_name.replace('.apk', '')
-            object_name = f"{self.prefix}/{custom_name}.apk"
+            # Remove any extension from custom name
+            for ext in self.SUPPORTED_EXTENSIONS:
+                custom_name = custom_name.replace(ext, '')
+            object_name = f"{self.prefix}/{custom_name}{extension}"
         else:
             object_name = f"{self.prefix}/{filename}"
         
@@ -88,12 +122,18 @@ class OSSUploader:
         file_size = len(file_content)
         file_size_mb = file_size / (1024 * 1024)
         
+        # Get appropriate content type
+        content_type = self.CONTENT_TYPES.get(
+            extension, 
+            'application/octet-stream'
+        )
+        
         try:
             # Upload the file
             result = self.bucket.put_object(
                 object_name, 
                 file_content,
-                headers={'Content-Type': 'application/vnd.android.package-archive'}
+                headers={'Content-Type': content_type}
             )
             
             if result.status != 200:
@@ -113,10 +153,11 @@ class OSSUploader:
                 "url": oss_url,
                 "object_name": object_name,
                 "bucket": self.bucket_name,
+                "file_type": extension.lstrip('.').upper(),
                 "size_mb": round(file_size_mb, 2)
                 # "console_url": console_url
             }
             
         except Exception as e:
-            raise Exception(f"Failed to upload APK: {str(e)}")
+            raise Exception(f"Failed to upload Android package: {str(e)}")
 
